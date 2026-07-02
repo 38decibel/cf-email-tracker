@@ -1,31 +1,32 @@
 # Pixel Tracker Email — Cloudflare Worker + D1
 
-> Déploiement d'un pixel de tracking 1×1 pour emails via Cloudflare Workers et base de données D1, sans serveur, sans hébergement.
+> Deploying an email tracking ( with 1x1 transparent pixel) using Cloudflare Workers and a D1 database — serverless, hosting-free, and maintenance-free.
 
 ---
 
-## Principe
+# Overview
 
-Un pixel de tracking est une image GIF transparente 1×1 px intégrée dans un email HTML. Quand le destinataire ouvre le mail, son client charge l'image → le Worker Cloudflare enregistre l'événement (token, IP, user-agent, heure, ville) de façon persistante dans une base D1.
+A tracking pixel is a transparent 1×1 GIF image embedded in an HTML email. When the recipient opens the email, their mail client loads the image, causing the Cloudflare Worker to record the event (token, IP address, user agent, timestamp, country, city) into a persistent D1 database.
 
-**Avantages de cette approche :**
-- Zéro serveur à maintenir
-- Gratuit (100 000 requêtes/jour, 5 Go de base D1 en free tier Cloudflare)
-- Déployé sur l'edge Cloudflare (rapide, fiable)
-- Logs persistants consultables en SQL
+**Benefits of this approach:**
 
----
-
-## Prérequis
-
-- Un compte Cloudflare (gratuit sur [cloudflare.com](https://cloudflare.com))
-- PowerShell (Windows)
+* No server to maintain
+* Free (100,000 requests/day and 5 GB of D1 storage on the Cloudflare Free plan)
+* Deployed on the Cloudflare Edge (fast and reliable)
+* Persistent logs that can be queried using SQL
 
 ---
 
-## Fichiers
+# Prerequisites
 
-### `index.js` — Code du Worker
+* A Cloudflare account (free at [https://cloudflare.com](https://cloudflare.com))
+* PowerShell (Windows)
+
+---
+
+# Files
+
+## `index.js` — Worker Code
 
 ```javascript
 export default {
@@ -55,7 +56,7 @@ export default {
 
     return new Response(gif, {
       headers: {
-        'Content-Type':  'image/gif',
+        'Content-Type': 'image/gif',
         'Cache-Control': 'no-store',
       },
     })
@@ -63,45 +64,49 @@ export default {
 }
 ```
 
-### `deploy.ps1` — Script PowerShell de déploiement
+## `deploy.ps1` — PowerShell Deployment Script
 
-À conserver et adapter pour un futur redéploiement.
+Keep this script and update it whenever you need to redeploy.
 
 ```powershell
-$token      = "TON_API_TOKEN"
-$accountId  = "TON_ACCOUNT_ID"
+$token      = "YOUR_API_TOKEN"
+$accountId  = "YOUR_ACCOUNT_ID"
 $workerName = "pixel-tracker"
-$dbId       = "TON_DB_UUID"
+$dbId       = "YOUR_DATABASE_UUID"
 ```
 
 ---
 
-## Procédure de déploiement (première installation)
+# Deployment Procedure (First Installation)
 
-### Étape 1 — Créer un API Token Cloudflare
+## Step 1 — Create a Cloudflare API Token
 
-1. Aller sur [dash.cloudflare.com/profile/api-tokens](https://dash.cloudflare.com/profile/api-tokens)
-2. **Create Token** → template **"Edit Cloudflare Workers"**
-3. **Continue to summary** → 
-4. Ajouter une ligne → Compte → D1 → Modifier
-5. Cliquer sur **Create Token**
-4. **Copier le token** (affiché une seule fois)
+1. Go to [https://dash.cloudflare.com/profile/api-tokens](https://dash.cloudflare.com/profile/api-tokens)
+2. Click **Create Token**
+3. Choose the **"Edit Cloudflare Workers"** template
+4. Click **Continue to Summary**
+5. Add a permission:
 
-Permissions accordées :
-- Workers Scripts : Modifier
-- Workers KV Storage : Modifier
-- D1 : Modifier
-- Account Settings : Lire
-- Workers Routes : Modifier
+   * Account → D1 → Edit
+6. Click **Create Token**
+7. **Copy the token** (it is displayed only once).
+
+Granted permissions:
+
+* Workers Scripts: Edit
+* Workers KV Storage: Edit
+* D1: Edit
+* Account Settings: Read
+* Workers Routes: Edit
 
 ---
 
-### Étape 2 — Déployer le Worker (format ES Module)
+## Step 2 — Deploy the Worker (ES Module Format)
 
-Le Worker doit être déployé en **multipart/form-data** avec déclaration du format ES module (obligatoire pour le binding D1).
+The Worker must be deployed using **multipart/form-data** while explicitly declaring the ES Module format (required for D1 bindings).
 
 ```powershell
-$code = Get-Content "C:\chemin\vers\index.js" -Raw
+$code = Get-Content "C:\path\to\index.js" -Raw
 
 $boundary = "----FormBoundary$(Get-Random)"
 $metadata = '{"main_module":"index.js","bindings":[],"compatibility_date":"2024-01-01"}'
@@ -128,11 +133,11 @@ Invoke-RestMethod `
     -Body $body
 ```
 
-> **Important :** Ne pas utiliser `Content-Type: application/javascript` seul — Cloudflare rejette la syntaxe `export default` dans ce mode.
+> **Important:** Do **not** use `Content-Type: application/javascript` by itself. Cloudflare will reject the `export default` syntax in that mode.
 
 ---
 
-### Étape 3 — Activer le subdomain workers.dev
+## Step 3 — Enable the workers.dev Subdomain
 
 ```powershell
 Invoke-RestMethod `
@@ -143,16 +148,17 @@ Invoke-RestMethod `
     -Body '{"enabled": true}'
 ```
 
-L'URL du pixel sera :
+Your tracking pixel URL will be:
+
 ```
-https://pixel-tracker.TON_SUBDOMAIN.workers.dev/?t=IDENTIFIANT
+https://pixel-tracker.YOUR_SUBDOMAIN.workers.dev/?t=IDENTIFIER
 ```
 
-Le subdomain est visible dans **Workers & Pages → pixel-tracker** dans le dashboard.
+The subdomain can be found under **Workers & Pages → pixel-tracker** in the Cloudflare dashboard.
 
 ---
 
-### Étape 4 — Créer la base de données D1
+## Step 4 — Create the D1 Database
 
 ```powershell
 Invoke-RestMethod `
@@ -163,14 +169,14 @@ Invoke-RestMethod `
     -Body '{"name": "pixel-tracker-db"}'
 ```
 
-**Noter l'`uuid` retourné** → c'est le `$dbId` pour les étapes suivantes.
+**Save the returned `uuid`**—this becomes `$dbId` for the following steps.
 
 ---
 
-### Étape 5 — Créer la table
+## Step 5 — Create the Table
 
 ```powershell
-$dbId = "UUID_RETOURNÉ_ÉTAPE_4"
+$dbId = "UUID_RETURNED_IN_STEP_4"
 
 Invoke-RestMethod `
     -Uri "https://api.cloudflare.com/client/v4/accounts/$accountId/d1/database/$dbId/query" `
@@ -182,46 +188,50 @@ Invoke-RestMethod `
 
 ---
 
-### Étape 6 — Lier la base D1 au Worker (dashboard obligatoire)
+## Step 6 — Bind the D1 Database to the Worker (Dashboard Required)
 
-> L'API REST ne supporte pas la gestion des bindings — cette étape se fait uniquement via le dashboard.
+> The REST API does **not** support managing bindings. This step must be completed through the Cloudflare dashboard.
 
 1. **Workers & Pages → pixel-tracker → Settings → Bindings**
-2. **Ajouter une liaison → Base de données D1**
-3. Renseigner :
-   - **Variable name** : `DB`
-   - **D1 database** : `pixel-tracker-db`
-4. **Save**
+2. **Add Binding → D1 Database**
+3. Configure:
 
-> Si le binding est créé mais non pris en compte, éditer le code directement depuis le dashboard (**Edit Code**) et faire **Save and Deploy** — cela force le redéploiement avec le binding actif.
+   * **Variable name:** `DB`
+   * **D1 database:** `pixel-tracker-db`
+4. Click **Save**
+
+> If the binding exists but is not being applied, edit the Worker directly in the dashboard (**Edit Code**) and click **Save and Deploy**. This forces a redeployment with the binding attached.
 
 ---
 
-## Utilisation dans les emails
+# Using the Tracking Pixel in Emails
 
 ```html
-<img src="https://pixel-tracker.TON_SUBDOMAIN.workers.dev/?t=IDENTIFIANT" width="1" height="1" />
+<img src="https://pixel-tracker.YOUR_SUBDOMAIN.workers.dev/?t=IDENTIFIER" width="1" height="1" />
 ```
 
-Pour outlook 365 il est uniquement possible de rajouter ce code à la fin du body dans la signature
+For Outlook 365, it is only possible to append this HTML to the end of the email body by editing the signature files located in:
+
+```
 C:\Users\...\AppData\Roaming\Microsoft\Signatures
+```
 
-### Exemples d'identifiants
+## Example Identifiers
 
-| Cas d'usage | Exemple |
-|---|---|
-| Mail spécifique | `?t=reunion-secu-2026-06-23` |
-| Par destinataire | `?t=jean.dupont` |
-| Numéro incrémental | `?t=mail-042` |
+| Use Case       | Example                          |
+| -------------- | -------------------------------- |
+| Specific email | `?t=security-meeting-2026-06-23` |
+| Per recipient  | `?t=john.smith`                  |
+| Incremental ID | `?t=mail-042`                    |
 
 ---
 
-## Consulter les logs
+# Viewing the Logs
 
-### Via PowerShell
+## Using PowerShell
 
 ```powershell
-$dbId = "UUID_RETOURNÉ_ÉTAPE_4"
+$dbId = "UUID_RETURNED_IN_STEP_4"
 
 $response = Invoke-RestMethod `
     -Uri "https://api.cloudflare.com/client/v4/accounts/$accountId/d1/database/$dbId/query" `
@@ -233,35 +243,41 @@ $response = Invoke-RestMethod `
 $response.result.results
 ```
 
-Affichage en tableau :
+Display as a table:
 
 ```powershell
 $response.result.results | Format-Table id, token, ip, city, time -AutoSize
 ```
 
-### Via le dashboard Cloudflare
+## Using the Cloudflare Dashboard
 
 **Workers & Pages → D1 → pixel-tracker-db → Console**
 
-Exemples de requêtes SQL :
+Example SQL queries:
 
 ```sql
--- 10 dernières ouvertures
+-- Last 10 opens
 SELECT * FROM opens ORDER BY id DESC LIMIT 10;
 
--- Ouvertures par token
-SELECT token, COUNT(*) as nb FROM opens GROUP BY token ORDER BY nb DESC;
+-- Opens grouped by token
+SELECT token, COUNT(*) AS nb
+FROM opens
+GROUP BY token
+ORDER BY nb DESC;
 
--- Ouvertures d'un destinataire précis
-SELECT * FROM opens WHERE token = 'jean.dupont' ORDER BY time DESC;
+-- Opens for a specific recipient
+SELECT *
+FROM opens
+WHERE token = 'john.smith'
+ORDER BY time DESC;
 ```
 
 ---
 
-## Redéployer le Worker (mises à jour futures)
+# Redeploying the Worker (Future Updates)
 
 ```powershell
-$code = Get-Content "C:\chemin\vers\index.js" -Raw
+$code = Get-Content "C:\path\to\index.js" -Raw
 
 $boundary = "----FormBoundary$(Get-Random)"
 $metadata = '{"main_module":"index.js","bindings":[],"compatibility_date":"2024-01-01"}'
@@ -288,25 +304,25 @@ Invoke-RestMethod `
     -Body $body
 ```
 
-> Après un redéploiement PowerShell, vérifier que le binding D1 est toujours actif dans le dashboard. Si le Worker retourne une erreur `Cannot read properties of undefined (reading 'prepare')`, le binding a été perdu → le recréer via **Settings → Bindings**.
+> After redeploying via PowerShell, verify that the D1 binding is still present in the dashboard. If the Worker returns the error `Cannot read properties of undefined (reading 'prepare')`, the binding has been lost and must be recreated under **Settings → Bindings**.
 
 ---
 
-## Limitations connues
+# Known Limitations
 
-| Limitation | Impact |
-|---|---|
-| **Apple Mail Privacy Protection** (iOS 15+) | Précharge les images → ouverture détectée même sans lecture réelle |
-| **Gmail** | Proxifie les images → IP enregistrée = Google, pas le destinataire |
-| **Proxy d'entreprise (Netskope)** | IP enregistrée = celle du proxy, pas de l'utilisateur individuel |
-| **Clients mail bloquant les images** | Pas de tracking si l'utilisateur n'autorise pas le chargement |
-| **Binding D1 perdu au redéploiement PS** | À recréer manuellement dans le dashboard après chaque redéploiement PowerShell |
+| Limitation                                        | Impact                                                                                             |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| **Apple Mail Privacy Protection** (iOS 15+)       | Images are preloaded, resulting in false-positive open events.                                     |
+| **Gmail**                                         | Images are proxied through Google, so the recorded IP belongs to Google rather than the recipient. |
+| **Corporate proxies (e.g., Netskope)**            | The recorded IP is the proxy's IP instead of the individual user's.                                |
+| **Email clients blocking remote images**          | No tracking occurs unless the recipient allows image loading.                                      |
+| **D1 binding lost after PowerShell redeployment** | The binding must be recreated manually in the dashboard after each PowerShell deployment.          |
 
 ---
 
-## Références
+# References
 
-- [Cloudflare Workers — Documentation](https://developers.cloudflare.com/workers/)
-- [Cloudflare D1 — Documentation](https://developers.cloudflare.com/d1/)
-- [Migrer vers ES Module Workers](https://developers.cloudflare.com/workers/reference/migrate-to-module-workers/)
-- [Cloudflare API — Workers Scripts](https://developers.cloudflare.com/api/operations/worker-script-upload-worker-module)
+* Cloudflare Workers Documentation
+* Cloudflare D1 Documentation
+* Migrating to ES Module Workers
+* Cloudflare API — Worker Script Upload
