@@ -1,4 +1,4 @@
-# Pixel Tracker Email — Cloudflare Worker + D1
+# Pixel Email Tracker — Cloudflare Worker + D1
 
 > Deploying an pixel email tracking, using Cloudflare Workers and a D1 database — serverless, hosting-free, and maintenance-free.
 
