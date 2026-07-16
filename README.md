@@ -1,8 +1,19 @@
 # Pixel Tracker Email — Cloudflare Worker + D1
 
-> Deploying an email tracking ( with 1x1 transparent pixel) using Cloudflare Workers and a D1 database — serverless, hosting-free, and maintenance-free.
+> Deploying an pixel email tracking, using Cloudflare Workers and a D1 database — serverless, hosting-free, and maintenance-free.
 
----
+# Legal & Privacy Notice
+
+This methods provides technical capabilities for generating and managing email tracking pixels. It is intended solely for lawful and transparent use.
+
+Users are solely responsible for ensuring that their use of this software complies with all applicable laws and regulations, including but not limited to privacy, electronic communications, and data protection legislation (such as the GDPR, the ePrivacy Directive, and any applicable national implementations).
+
+In particular, users sending emails to recipients located in France should be aware of the recommendations published by the French Data Protection Authority (CNIL) regarding the use of email tracking pixels. Depending on the purpose of the tracking (e.g. marketing, audience measurement, profiling), prior consent from recipients may be required, while certain strictly necessary technical uses may be exempt under specific conditions.
+
+This project does not encourage or endorse the use of tracking technologies in violation of applicable laws. By using this methods, you acknowledge that you are responsible for determining the legal basis for your processing activities, providing appropriate information to recipients, obtaining any required consent, and respecting recipients' rights.
+
+For more information, please refer to the CNIL recommendation on email tracking pixels:
+[https://www.cnil.fr/fr/recommandation-pixel-suivi-courriels](https://www.cnil.fr/fr/recommandation-pixel-suivi-courriels)
 
 # Overview
 
@@ -15,14 +26,10 @@ A tracking pixel is a transparent 1×1 GIF image embedded in an HTML email. When
 * Deployed on the Cloudflare Edge (fast and reliable)
 * Persistent logs that can be queried using SQL
 
----
-
 # Prerequisites
 
 * A Cloudflare account (free at [https://cloudflare.com](https://cloudflare.com))
 * PowerShell (Windows)
-
----
 
 # Files
 
@@ -75,8 +82,6 @@ $workerName = "pixel-tracker"
 $dbId       = "YOUR_DATABASE_UUID"
 ```
 
----
-
 # Deployment Procedure (First Installation)
 
 ## Step 1 — Create a Cloudflare API Token
@@ -98,8 +103,6 @@ Granted permissions:
 * D1: Edit
 * Account Settings: Read
 * Workers Routes: Edit
-
----
 
 ## Step 2 — Deploy the Worker (ES Module Format)
 
@@ -135,8 +138,6 @@ Invoke-RestMethod `
 
 > **Important:** Do **not** use `Content-Type: application/javascript` by itself. Cloudflare will reject the `export default` syntax in that mode.
 
----
-
 ## Step 3 — Enable the workers.dev Subdomain
 
 ```powershell
@@ -156,8 +157,6 @@ https://pixel-tracker.YOUR_SUBDOMAIN.workers.dev/?t=IDENTIFIER
 
 The subdomain can be found under **Workers & Pages → pixel-tracker** in the Cloudflare dashboard.
 
----
-
 ## Step 4 — Create the D1 Database
 
 ```powershell
@@ -170,8 +169,6 @@ Invoke-RestMethod `
 ```
 
 **Save the returned `uuid`**—this becomes `$dbId` for the following steps.
-
----
 
 ## Step 5 — Create the Table
 
@@ -186,8 +183,6 @@ Invoke-RestMethod `
     -Body '{"sql": "CREATE TABLE IF NOT EXISTS opens (id INTEGER PRIMARY KEY AUTOINCREMENT, token TEXT, ip TEXT, ua TEXT, country TEXT, city TEXT, time TEXT);"}'
 ```
 
----
-
 ## Step 6 — Bind the D1 Database to the Worker (Dashboard Required)
 
 > The REST API does **not** support managing bindings. This step must be completed through the Cloudflare dashboard.
@@ -201,8 +196,6 @@ Invoke-RestMethod `
 4. Click **Save**
 
 > If the binding exists but is not being applied, edit the Worker directly in the dashboard (**Edit Code**) and click **Save and Deploy**. This forces a redeployment with the binding attached.
-
----
 
 # Using the Tracking Pixel in Emails
 
@@ -223,8 +216,6 @@ C:\Users\...\AppData\Roaming\Microsoft\Signatures
 | Specific email | `?t=security-meeting-2026-06-23` |
 | Per recipient  | `?t=john.smith`                  |
 | Incremental ID | `?t=mail-042`                    |
-
----
 
 # Viewing the Logs
 
@@ -317,8 +308,6 @@ Invoke-RestMethod `
 | **Corporate proxies (e.g., Netskope)**            | The recorded IP is the proxy's IP instead of the individual user's.                                |
 | **Email clients blocking remote images**          | No tracking occurs unless the recipient allows image loading.                                      |
 | **D1 binding lost after PowerShell redeployment** | The binding must be recreated manually in the dashboard after each PowerShell deployment.          |
-
----
 
 # References
 
